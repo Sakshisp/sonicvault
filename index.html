@@ -4,439 +4,1344 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="theme-color" content="#121212" />
-  <title>SonicVault — Cloud & Local Audio Player</title>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#000000" />
+  <title>SonicVault — Spotify-Style Cloud & Local Audio Player</title>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
     :root {
-      --bg-base: #000000;
-      --bg-surface: #121212;
+      --bg-black: #000000;
+      --bg-base: #121212;
       --bg-elevated: #181818;
-      --bg-highlight: #282828;
+      --bg-card: #1f1f1f;
+      --bg-highlight: #2a2a2a;
+      --bg-press: #333333;
       --text-primary: #ffffff;
       --text-secondary: #b3b3b3;
+      --text-muted: #727272;
       --accent: #1db954;
       --accent-hover: #1ed760;
-      --border: #2a2a2a;
+      --danger: #f15e6c;
+      --border: rgba(255, 255, 255, 0.08);
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background: var(--bg-base); color: var(--text-primary); height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
-    
-    /* Layout */
-    .app-body { display: flex; flex: 1; overflow: hidden; gap: 8px; padding: 8px 8px 0 8px; }
-    .sidebar { width: 260px; background: var(--bg-surface); border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
-    .main-view { flex: 1; background: linear-gradient(180deg, #1f2a24 0%, var(--bg-surface) 220px); border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; }
-    
-    /* Header & Actions */
-    .topbar { padding: 16px 20px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.06); }
-    .search-box { background: var(--bg-highlight); border: 1px solid transparent; border-radius: 20px; padding: 8px 14px; color: #fff; width: 240px; max-width: 100%; outline: none; font-size: 14px; }
-    .search-box:focus { border-color: #555; }
-    .btn { background: var(--bg-highlight); color: #fff; border: none; padding: 9px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: 0.15s; }
-    .btn:hover { background: #333; }
-    .btn-primary { background: var(--accent); color: #000; }
-    .btn-primary:hover { background: var(--accent-hover); }
-    
-    /* Sidebar Nav */
-    .brand { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; display: flex; align-items: center; gap: 8px; color: var(--accent); }
-    .nav-item { padding: 10px 12px; border-radius: 6px; color: var(--text-secondary); cursor: pointer; font-weight: 600; font-size: 14px; display: flex; justify-content: space-between; }
-    .nav-item.active, .nav-item:hover { background: var(--bg-highlight); color: #fff; }
-    
-    /* Track List */
-    .track-list { flex: 1; overflow-y: auto; padding: 12px 20px; }
-    .track-row { display: grid; grid-template-columns: 32px 1fr 90px 44px; align-items: center; padding: 10px 12px; border-radius: 6px; cursor: pointer; gap: 10px; }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background: var(--bg-black);
+      color: var(--text-primary);
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    /* Scrollbars */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.35); }
+
+    /* Main Workspace Grid */
+    .workspace {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 270px 1fr 300px;
+      gap: 8px;
+      padding: 8px 8px 0 8px;
+      overflow: hidden;
+    }
+    .workspace.queue-closed {
+      grid-template-columns: 270px 1fr;
+    }
+
+    /* Left Sidebar */
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      overflow: hidden;
+    }
+    .panel {
+      background: var(--bg-base);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .nav-box {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: var(--text-primary);
+    }
+    .brand-icon {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: 900;
+    }
+    .nav-links {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .nav-btn {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      border-radius: 6px;
+      color: var(--text-secondary);
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: 0.15s;
+    }
+    .nav-btn:hover { color: var(--text-primary); background: rgba(255,255,255,0.05); }
+    .nav-btn.active { color: var(--text-primary); background: var(--bg-highlight); }
+    .nav-count {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .library-box {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 14px 12px;
+      overflow: hidden;
+    }
+    .lib-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 6px 12px 6px;
+      color: var(--text-secondary);
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .icon-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      transition: 0.15s;
+    }
+    .icon-btn:hover { background: var(--bg-highlight); color: var(--text-primary); }
+    .playlist-list {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .pl-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: 0.15s;
+    }
+    .pl-item:hover { background: rgba(255,255,255,0.06); }
+    .pl-item.active { background: var(--bg-highlight); }
+    .pl-thumb {
+      width: 40px;
+      height: 40px;
+      border-radius: 4px;
+      background: linear-gradient(135deg, #2e2e2e, #1a1a1a);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+    .pl-thumb.liked { background: linear-gradient(135deg, #450af5, #c4efd9); color: #fff; }
+    .pl-thumb.drive { background: linear-gradient(135deg, #0f9d58, #4285f4); color: #fff; }
+    .pl-info { min-width: 0; flex: 1; }
+    .pl-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pl-sub { font-size: 12px; color: var(--text-secondary); }
+
+    /* Center Stage */
+    .main-stage {
+      background: var(--bg-base);
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+    .topbar {
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      background: rgba(18, 18, 18, 0.85);
+      backdrop-filter: blur(12px);
+      z-index: 10;
+      border-bottom: 1px solid var(--border);
+    }
+    .search-wrap {
+      position: relative;
+      flex: 1;
+      max-width: 320px;
+      min-width: 180px;
+    }
+    .search-input {
+      width: 100%;
+      background: #242424;
+      border: 1px solid transparent;
+      border-radius: 500px;
+      padding: 9px 16px 9px 36px;
+      color: var(--text-primary);
+      font-size: 13px;
+      outline: none;
+      transition: 0.15s;
+    }
+    .search-input:focus { border-color: #fff; background: #2a2a2a; }
+    .search-icon {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-secondary);
+      font-size: 13px;
+      pointer-events: none;
+    }
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .pill-btn {
+      background: rgba(255,255,255,0.1);
+      color: var(--text-primary);
+      border: none;
+      padding: 8px 14px;
+      border-radius: 500px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: 0.15s;
+      white-space: nowrap;
+    }
+    .pill-btn:hover { background: rgba(255,255,255,0.18); transform: scale(1.02); }
+    .pill-btn.spotify { background: var(--accent); color: #000; }
+    .pill-btn.spotify:hover { background: var(--accent-hover); }
+
+    .status-toast {
+      padding: 9px 20px;
+      font-size: 12px;
+      font-weight: 600;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .status-toast.info { display: flex; background: rgba(29, 185, 84, 0.16); color: #8ce99a; }
+    .status-toast.error { display: flex; background: rgba(241, 94, 108, 0.18); color: #ff8787; }
+
+    .stage-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding-bottom: 24px;
+    }
+
+    /* Spotify Hero Banner */
+    .hero-banner {
+      padding: 24px 24px 20px 24px;
+      background: linear-gradient(180deg, #1f4e36 0%, var(--bg-base) 100%);
+      display: flex;
+      align-items: flex-end;
+      gap: 20px;
+    }
+    .hero-cover {
+      width: 148px;
+      height: 148px;
+      border-radius: 8px;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.55);
+      background: linear-gradient(135deg, #1db954, #191414);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 54px;
+      flex-shrink: 0;
+    }
+    .hero-meta { min-width: 0; }
+    .hero-type { font-size: 11px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: var(--text-primary); }
+    .hero-title { font-size: 36px; font-weight: 900; letter-spacing: -1px; margin: 4px 0 8px 0; line-height: 1.1; }
+    .hero-desc { font-size: 13px; color: var(--text-secondary); }
+
+    .action-bar {
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .big-play-btn {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #000;
+      border: none;
+      font-size: 20px;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 8px 16px rgba(0,0,0,0.35);
+      transition: 0.15s;
+    }
+    .big-play-btn:hover { background: var(--accent-hover); transform: scale(1.05); }
+
+    /* Track Table */
+    .track-table-wrap { padding: 0 16px; }
+    .track-header {
+      display: grid;
+      grid-template-columns: 36px 1fr 95px 88px;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .track-row {
+      display: grid;
+      grid-template-columns: 36px 1fr 95px 88px;
+      align-items: center;
+      padding: 9px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.12s;
+      gap: 8px;
+    }
     .track-row:hover { background: rgba(255,255,255,0.08); }
-    .track-row.playing { background: rgba(29, 185, 84, 0.15); }
-    .track-row.playing .track-title { color: var(--accent); }
-    .track-title { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .track-meta { font-size: 12px; color: var(--text-secondary); }
-    .badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; background: #263238; color: #80cbc4; text-transform: uppercase; font-weight: 700; text-align: center; }
-    .badge.local { background: #2e2638; color: #ce93d8; }
-    .like-btn { background: none; border: none; color: var(--text-secondary); font-size: 16px; cursor: pointer; }
-    .like-btn.liked { color: var(--accent); }
+    .track-row.active { background: rgba(255,255,255,0.12); }
+    .track-num { font-size: 13px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+    .track-row.active .track-num,
+    .track-row.active .track-title { color: var(--accent); }
+    .track-main { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .track-art {
+      width: 40px;
+      height: 40px;
+      border-radius: 4px;
+      background: #282828;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+    .track-text { min-width: 0; }
+    .track-title { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .track-sub { font-size: 12px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .source-tag {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 500px;
+      text-transform: uppercase;
+      width: fit-content;
+      background: rgba(66, 133, 244, 0.18);
+      color: #8ab4f8;
+    }
+    .source-tag.local { background: rgba(186, 104, 200, 0.18); color: #e1bee7; }
+    .row-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 4px;
+    }
+    .heart-btn {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 16px;
+      cursor: pointer;
+      padding: 4px 6px;
+    }
+    .heart-btn.liked { color: var(--accent); }
 
-    /* Player Bar */
-    .player-bar { height: 88px; background: #000; border-top: 1px solid var(--border); padding: 0 16px; display: grid; grid-template-columns: 1fr 1.4fr 1fr; align-items: center; gap: 12px; }
-    .now-playing { display: flex; flex-direction: column; min-width: 0; }
-    .np-title { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .np-sub { font-size: 12px; color: var(--text-secondary); }
-    .controls { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-    .ctrl-buttons { display: flex; align-items: center; gap: 16px; }
-    .ctrl-btn { background: none; border: none; color: var(--text-secondary); font-size: 16px; cursor: pointer; }
-    .ctrl-btn:hover, .ctrl-btn.active { color: var(--accent); }
-    .play-circle { width: 36px; height: 36px; border-radius: 50%; background: #fff; color: #000; border: none; font-size: 16px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-    .progress-wrap { width: 100%; display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text-secondary); }
-    input[type="range"] { accent-color: var(--accent); cursor: pointer; }
-    .seek-bar { flex: 1; height: 4px; }
-    .right-controls { display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
+    /* Right Now-Playing / Queue Panel */
+    .right-panel {
+      background: var(--bg-base);
+      border-radius: 8px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow-y: auto;
+    }
+    .workspace.queue-closed .right-panel { display: none; }
+    .rp-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .np-card {
+      background: var(--bg-elevated);
+      border-radius: 8px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .np-big-art {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      border-radius: 6px;
+      background: linear-gradient(135deg, #25382e, #121212);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 64px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+    }
+    .queue-list { display: flex; flex-direction: column; gap: 6px; }
+    .q-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px;
+      border-radius: 6px;
+      background: var(--bg-elevated);
+      font-size: 13px;
+      cursor: pointer;
+      gap: 8px;
+    }
+    .q-item:hover { background: var(--bg-highlight); }
 
-    /* Modal */
-    .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; padding: 16px; z-index: 50; }
-    .modal { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 12px; padding: 20px; width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: 14px; }
-    .modal input { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #444; background: #121212; color: #fff; font-size: 13px; }
-    .status-banner { padding: 8px 20px; background: #1a2620; color: #81c784; font-size: 12px; display: none; }
+    /* Bottom Player Bar */
+    .player-bar {
+      height: 88px;
+      background: var(--bg-black);
+      padding: 0 16px;
+      display: grid;
+      grid-template-columns: 1fr 1.5fr 1fr;
+      align-items: center;
+      gap: 16px;
+    }
+    .pb-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .pb-art {
+      width: 54px;
+      height: 54px;
+      border-radius: 6px;
+      background: #282828;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+    .pb-info { min-width: 0; }
+    .pb-title { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pb-sub { font-size: 12px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-    /* Mobile Responsive */
-    @media (max-width: 768px) {
-      .app-body { flex-direction: column; padding: 4px 4px 0 4px; }
-      .sidebar { width: 100%; flex-direction: row; padding: 10px 12px; align-items: center; justify-content: space-between; overflow-x: auto; }
-      .nav-group { display: flex; gap: 6px; }
-      .player-bar { grid-template-columns: 1fr; height: auto; padding: 10px 14px 14px 14px; gap: 8px; }
-      .right-controls { display: none; }
-      .track-row { grid-template-columns: 24px 1fr 64px 36px; padding: 10px 6px; }
-      .search-box { width: 100%; order: 3; }
+    .pb-center { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .pb-buttons { display: flex; align-items: center; gap: 18px; }
+    .ctrl {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 16px;
+      cursor: pointer;
+      transition: 0.15s;
+    }
+    .ctrl:hover { color: var(--text-primary); }
+    .ctrl.active { color: var(--accent); position: relative; }
+    .play-main {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: #fff;
+      color: #000;
+      border: none;
+      font-size: 15px;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: 0.12s;
+    }
+    .play-main:hover { transform: scale(1.06); }
+    .scrubber {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--text-secondary);
+      font-variant-numeric: tabular-nums;
+    }
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: #4d4d4d;
+      height: 4px;
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #fff;
+      cursor: pointer;
+    }
+    input[type="range"]:hover { background: var(--accent); }
+    .seek-slider { flex: 1; }
+
+    .pb-right { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+
+    /* Modals */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.78);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 100;
+    }
+    .modal-box {
+      background: #242424;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 22px;
+      width: 100%;
+      max-width: 440px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.6);
+    }
+    .modal-box h3 { font-size: 18px; font-weight: 800; }
+    .modal-box p { font-size: 13px; color: var(--text-secondary); line-height: 1.45; }
+    .modal-input {
+      width: 100%;
+      padding: 11px 12px;
+      border-radius: 6px;
+      border: 1px solid #444;
+      background: #121212;
+      color: #fff;
+      font-size: 13px;
+      outline: none;
+    }
+    .modal-input:focus { border-color: var(--accent); }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+
+    /* Mobile Layout */
+    @media (max-width: 960px) {
+      .workspace { grid-template-columns: 220px 1fr; }
+      .right-panel { display: none !important; }
+    }
+    @media (max-width: 700px) {
+      .workspace {
+        display: flex;
+        flex-direction: column;
+        padding: 4px 4px 0 4px;
+        gap: 4px;
+      }
+      .sidebar { flex-direction: row; flex-shrink: 0; }
+      .nav-box { flex: 1; padding: 10px 12px; flex-direction: row; align-items: center; justify-content: space-between; gap: 8px; overflow-x: auto; }
+      .nav-links { flex-direction: row; }
+      .library-box { display: none; }
+      .hero-banner { padding: 16px; align-items: center; }
+      .hero-cover { width: 84px; height: 84px; font-size: 34px; }
+      .hero-title { font-size: 22px; }
+      .track-header { display: none; }
+      .track-row { grid-template-columns: 24px 1fr 64px; padding: 10px 8px; }
+      .source-tag { display: none; }
+      .player-bar {
+        grid-template-columns: 1fr;
+        height: auto;
+        padding: 10px 14px 14px 14px;
+        gap: 8px;
+        border-top: 1px solid var(--border);
+      }
+      .pb-right { display: none; }
+      .pb-art { width: 42px; height: 42px; font-size: 18px; }
     }
   </style>
 </head>
 <body>
 
-  <div class="app-body">
+  <div class="workspace" id="workspace">
+    <!-- Left Sidebar -->
     <aside class="sidebar">
-      <div class="brand">● SonicVault</div>
-      <div class="nav-group">
-        <div class="nav-item active" data-filter="all" onclick="setFilter('all', this)">All Tracks <span id="countAll">0</span></div>
-        <div class="nav-item" data-filter="drive" onclick="setFilter('drive', this)">Google Drive <span id="countDrive">0</span></div>
-        <div class="nav-item" data-filter="liked" onclick="setFilter('liked', this)">Liked Songs <span id="countLiked">0</span></div>
-      </div>
-    </aside>
-
-    <main class="main-view">
-      <div class="topbar">
-        <input type="text" id="searchInput" class="search-box" placeholder="Search songs..." oninput="renderTracks()" />
-        <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          <button class="btn btn-primary" onclick="handleDriveConnect()">☁️ Connect Google Drive</button>
-          <label class="btn">
-            📁 Local Files
-            <input type="file" id="localFileInput" accept="audio/*" multiple hidden onchange="handleLocalFiles(event)" />
-          </label>
-          <button class="btn" onclick="openClientModal()" title="Configure Google OAuth Client ID">⚙️</button>
+      <div class="panel nav-box">
+        <div class="brand">
+          <div class="brand-icon">▶</div>
+          <span>SonicVault</span>
+        </div>
+        <div class="nav-links">
+          <div class="nav-btn active" id="nav-all" onclick="selectView('all')">
+            <span>🏠 All Songs</span>
+            <span class="nav-count" id="cntAll">0</span>
+          </div>
+          <div class="nav-btn" id="nav-drive" onclick="selectView('drive')">
+            <span>☁️ Google Drive</span>
+            <span class="nav-count" id="cntDrive">0</span>
+          </div>
+          <div class="nav-btn" id="nav-liked" onclick="selectView('liked')">
+            <span>💚 Liked Songs</span>
+            <span class="nav-count" id="cntLiked">0</span>
+          </div>
         </div>
       </div>
 
-      <div id="statusBanner" class="status-banner"></div>
+      <div class="panel library-box">
+        <div class="lib-header">
+          <span>📚 Your Playlists</span>
+          <button class="icon-btn" onclick="openPlaylistModal()" title="Create Playlist">+</button>
+        </div>
+        <div class="playlist-list" id="playlistSidebar"></div>
+      </div>
+    </aside>
 
-      <div class="track-list" id="trackList">
-        <p style="color: var(--text-secondary); font-size: 14px; margin-top: 20px;">
-          Click <strong>Connect Google Drive</strong> to stream your Drive audio files without using phone storage, or add local audio files.
-        </p>
+    <!-- Center Main Stage -->
+    <main class="main-stage">
+      <header class="topbar">
+        <div class="search-wrap">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="searchInput" class="search-input" placeholder="What do you want to play?" oninput="renderTracks()" />
+        </div>
+        <div class="top-actions">
+          <button class="pill-btn spotify" onclick="connectGoogleDrive()">☁️ Connect Drive</button>
+          <label class="pill-btn">
+            📁 Local
+            <input type="file" accept="audio/*" multiple hidden onchange="importLocalFiles(event)" />
+          </label>
+          <button class="pill-btn" onclick="openClientModal()" title="Google OAuth Settings">⚙️</button>
+        </div>
+      </header>
+
+      <div id="statusToast" class="status-toast">
+        <span id="statusText"></span>
+        <button class="icon-btn" style="width:22px;height:22px;font-size:12px;" onclick="hideStatus()">✕</button>
+      </div>
+
+      <div class="stage-scroll">
+        <section class="hero-banner" id="heroBanner">
+          <div class="hero-cover" id="heroCover">🎵</div>
+          <div class="hero-meta">
+            <div class="hero-type" id="heroType">PLAYLIST</div>
+            <h1 class="hero-title" id="heroTitle">All Songs</h1>
+            <div class="hero-desc" id="heroDesc">Ad-free personal streaming • 0 MB phone storage used</div>
+          </div>
+        </section>
+
+        <div class="action-bar">
+          <button class="big-play-btn" onclick="playCurrentView()" title="Play All">▶</button>
+          <button class="pill-btn" onclick="shuffleCurrentView()">🔀 Shuffle Play</button>
+          <button class="pill-btn" onclick="openPlaylistModal()">+ New Playlist</button>
+        </div>
+
+        <div class="track-table-wrap">
+          <div class="track-header">
+            <div>#</div>
+            <div>Title</div>
+            <div>Source</div>
+            <div style="text-align:right;">Actions</div>
+          </div>
+          <div id="trackContainer"></div>
+        </div>
       </div>
     </main>
+
+    <!-- Right Now Playing / Queue Panel -->
+    <aside class="right-panel">
+      <div class="rp-header">
+        <span>Now Playing</span>
+        <button class="icon-btn" onclick="toggleQueuePanel()" title="Close Panel">✕</button>
+      </div>
+      <div class="np-card">
+        <div class="np-big-art" id="rpArt">🎧</div>
+        <div>
+          <div class="pb-title" id="rpTitle" style="font-size:16px;">Nothing Playing</div>
+          <div class="pb-sub" id="rpSub" style="margin-top:4px;">Pick a track from Google Drive or Local</div>
+        </div>
+      </div>
+      <div class="rp-header" style="margin-top:4px;">
+        <span>Next in Queue</span>
+      </div>
+      <div class="queue-list" id="queueList"></div>
+    </aside>
   </div>
 
+  <!-- Bottom Spotify Player Bar -->
   <footer class="player-bar">
-    <div class="now-playing">
-      <div class="np-title" id="npTitle">No track selected</div>
-      <div class="np-sub" id="npSub">Ready</div>
+    <div class="pb-left">
+      <div class="pb-art" id="pbArt">🎵</div>
+      <div class="pb-info">
+        <div class="pb-title" id="pbTitle">Ready to play</div>
+        <div class="pb-sub" id="pbSub">Connect Google Drive to stream</div>
+      </div>
+      <button class="heart-btn" id="pbHeart" onclick="toggleCurrentLike()" title="Save to Liked Songs">♥</button>
     </div>
 
-    <div class="controls">
-      <div class="ctrl-buttons">
-        <button class="ctrl-btn" id="shuffleBtn" onclick="toggleShuffle()" title="Shuffle">🔀</button>
-        <button class="ctrl-btn" onclick="prevTrack()" title="Previous">⏮</button>
-        <button class="play-circle" id="playPauseBtn" onclick="togglePlay()">▶</button>
-        <button class="ctrl-btn" onclick="nextTrack()" title="Next">⏭</button>
-        <button class="ctrl-btn" id="repeatBtn" onclick="toggleRepeat()" title="Repeat">🔁</button>
+    <div class="pb-center">
+      <div class="pb-buttons">
+        <button class="ctrl" id="btnShuffle" onclick="toggleShuffle()" title="Shuffle">🔀</button>
+        <button class="ctrl" onclick="prevTrack()" title="Previous">⏮</button>
+        <button class="play-main" id="btnPlayPause" onclick="togglePlayPause()" title="Play / Pause">▶</button>
+        <button class="ctrl" onclick="nextTrack()" title="Next">⏭</button>
+        <button class="ctrl" id="btnRepeat" onclick="toggleRepeat()" title="Repeat">🔁</button>
       </div>
-      <div class="progress-wrap">
-        <span id="curTime">0:00</span>
-        <input type="range" id="seekBar" class="seek-bar" min="0" max="100" value="0" oninput="seekAudio(this.value)" />
-        <span id="durTime">0:00</span>
+      <div class="scrubber">
+        <span id="timeElapsed">0:00</span>
+        <input type="range" id="seekSlider" class="seek-slider" min="0" max="100" value="0" oninput="onSeek(this.value)" />
+        <span id="timeTotal">0:00</span>
       </div>
     </div>
 
-    <div class="right-controls">
-      <span>🔊</span>
-      <input type="range" min="0" max="1" step="0.02" value="1" style="width:90px;" oninput="audio.volume = this.value" />
+    <div class="pb-right">
+      <button class="ctrl" onclick="toggleQueuePanel()" title="Toggle Now Playing Panel">📋</button>
+      <span style="font-size:14px;color:var(--text-secondary);">🔊</span>
+      <input type="range" min="0" max="1" step="0.02" value="1" style="width:94px;" oninput="audio.volume = this.value" />
     </div>
   </footer>
 
-  <!-- Client ID Setup Modal -->
-  <div class="modal-backdrop" id="clientModal">
-    <div class="modal">
-      <h3>Google Drive OAuth Setup</h3>
-      <p style="font-size:13px; color:var(--text-secondary); line-height:1.4;">
-        Paste your Google Cloud <strong>Web Application Client ID</strong> below. Your current origin is:
-        <code id="originDisplay" style="color:#80cbc4;"></code>
+  <!-- Google OAuth Client ID Modal -->
+  <div class="modal-overlay" id="clientModal">
+    <div class="modal-box">
+      <h3>Google Drive Connection</h3>
+      <p>
+        Enter your Google Cloud <strong>Web Application Client ID</strong>. Make sure your Authorized JavaScript origin in Google Cloud includes:
+        <br /><code id="originLabel" style="color:var(--accent);font-weight:700;"></code>
       </p>
-      <input type="text" id="clientIdInput" placeholder="123456789-abc.apps.googleusercontent.com" />
-      <div style="display:flex; justify-content:flex-end; gap:8px;">
-        <button class="btn" onclick="closeClientModal()">Cancel</button>
-        <button class="btn btn-primary" onclick="saveClientId()">Save & Connect</button>
+      <input type="text" id="clientIdField" class="modal-input" placeholder="1234567890-xxxxx.apps.googleusercontent.com" />
+      <div class="modal-actions">
+        <button class="pill-btn" onclick="closeModal('clientModal')">Cancel</button>
+        <button class="pill-btn spotify" onclick="saveClientIdAndConnect()">Save & Connect</button>
       </div>
     </div>
   </div>
 
-  <audio id="audioPlayer" preload="auto"></audio>
+  <!-- Create Playlist Modal -->
+  <div class="modal-overlay" id="playlistModal">
+    <div class="modal-box">
+      <h3>Create Playlist</h3>
+      <p>Give your custom playlist a name. You can add any Google Drive or local tracks to it.</p>
+      <input type="text" id="playlistNameField" class="modal-input" placeholder="e.g., Late Night Chill, Workout Mix" />
+      <div class="modal-actions">
+        <button class="pill-btn" onclick="closeModal('playlistModal')">Cancel</button>
+        <button class="pill-btn spotify" onclick="createPlaylist()">Create</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Track to Playlist Modal -->
+  <div class="modal-overlay" id="addToPlModal">
+    <div class="modal-box">
+      <h3>Add to Playlist</h3>
+      <p id="addTrackLabel">Choose a playlist:</p>
+      <div id="plPickerList" style="display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto;"></div>
+      <div class="modal-actions">
+        <button class="pill-btn" onclick="closeModal('addToPlModal')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <audio id="audioEl" playsinline preload="auto"></audio>
 
   <script>
-    const SCOPES = 'https://www.googleapis.com/auth/drive.readonly';
-    let tracks = []; // { id, name, source: 'drive'|'local', fileObj?, mimeType? }
-    let likedIds = new Set(JSON.parse(localStorage.getItem('sv_liked') || '[]'));
-    let currentFilter = 'all';
-    let currentIndex = -1;
+    const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
+    const audio = document.getElementById('audioEl');
+
+    let tracks = []; // { id, driveId?, name, ext, mimeType, source: 'drive'|'local', fileObj? }
+    let likedIds = new Set(JSON.parse(localStorage.getItem('sv_liked_v2') || '[]'));
+    let playlists = JSON.parse(localStorage.getItem('sv_playlists_v2') || '[]'); // { id, name, trackIds: [] }
+    let activeView = 'all'; // 'all' | 'drive' | 'liked' | playlistId
+    let currentTrackId = null;
     let isShuffle = false;
     let isRepeat = false;
     let accessToken = null;
-    let tokenClient = null;
-    let currentBlobUrl = null;
+    let activeBlobUrl = null;
+    let pendingTrackIdForPlaylist = null;
 
-    const audio = document.getElementById('audioPlayer');
+    // Infer reliable browser audio MIME type from file extension when Drive returns generic types
+    function inferAudioMime(filename, fallbackMime) {
+      const ext = (filename.split('.').pop() || '').toLowerCase();
+      const map = {
+        mp3: 'audio/mpeg',
+        m4a: 'audio/mp4',
+        mp4: 'audio/mp4',
+        aac: 'audio/aac',
+        wav: 'audio/wav',
+        ogg: 'audio/ogg',
+        oga: 'audio/ogg',
+        opus: 'audio/opus',
+        flac: 'audio/flac',
+        webm: 'audio/webm'
+      };
+      if (map[ext]) return map[ext];
+      if (fallbackMime && fallbackMime.startsWith('audio/')) return fallbackMime;
+      return 'audio/mpeg';
+    }
 
-    function showStatus(msg, isError = false) {
-      const el = document.getElementById('statusBanner');
-      el.style.display = 'block';
-      el.style.background = isError ? '#3b1c1c' : '#1a2620';
-      el.style.color = isError ? '#ef9a9a' : '#81c784';
-      el.textContent = msg;
+    function showStatus(msg, type = 'info') {
+      const toast = document.getElementById('statusToast');
+      toast.className = 'status-toast ' + type;
+      document.getElementById('statusText').textContent = msg;
+    }
+
+    function hideStatus() {
+      document.getElementById('statusToast').className = 'status-toast';
     }
 
     function openClientModal() {
-      document.getElementById('originDisplay').textContent = window.location.origin;
-      document.getElementById('clientIdInput').value = localStorage.getItem('sv_gdrive_client_id') || '';
+      document.getElementById('originLabel').textContent = window.location.origin;
+      document.getElementById('clientIdField').value = localStorage.getItem('sv_gdrive_client_id') || '';
       document.getElementById('clientModal').style.display = 'flex';
     }
 
-    function closeClientModal() {
-      document.getElementById('clientModal').style.display = 'none';
+    function openPlaylistModal() {
+      document.getElementById('playlistNameField').value = '';
+      document.getElementById('playlistModal').style.display = 'flex';
+      setTimeout(() => document.getElementById('playlistNameField').focus(), 50);
     }
 
-    function saveClientId() {
-      const val = document.getElementById('clientIdInput').value.trim();
-      if (!val) return;
-      localStorage.setItem('sv_gdrive_client_id', val);
-      closeClientModal();
-      handleDriveConnect();
+    function closeModal(id) {
+      document.getElementById(id).style.display = 'none';
     }
 
-    function handleDriveConnect() {
+    function saveClientIdAndConnect() {
+      const id = document.getElementById('clientIdField').value.trim();
+      if (!id) return;
+      localStorage.setItem('sv_gdrive_client_id', id);
+      closeModal('clientModal');
+      connectGoogleDrive(true);
+    }
+
+    function connectGoogleDrive(forceConsent = false) {
       const clientId = localStorage.getItem('sv_gdrive_client_id');
       if (!clientId) {
         openClientModal();
         return;
       }
       if (!window.google || !google.accounts || !google.accounts.oauth2) {
-        showStatus('Google Sign-In library still loading. Try again in 2 seconds.', true);
+        showStatus('Google Sign-In SDK is still loading. Wait 2 seconds and click again.', 'error');
         return;
       }
-      tokenClient = google.accounts.oauth2.initTokenClient({
+
+      const tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: clientId,
-        scope: SCOPES,
-        callback: async (resp) => {
-          if (resp.error) {
-            showStatus('Google Auth error: ' + resp.error, true);
+        scope: DRIVE_SCOPE,
+        callback: async (response) => {
+          if (response.error) {
+            showStatus('Google Sign-In failed: ' + (response.error_description || response.error), 'error');
             return;
           }
-          accessToken = resp.access_token;
-          await fetchDriveAudioFiles();
+          accessToken = response.access_token;
+          await loadDriveTracks();
         }
       });
-      tokenClient.requestAccessToken({ prompt: accessToken ? '' : 'consent' });
+
+      tokenClient.requestAccessToken({ prompt: forceConsent || !accessToken ? 'select_account' : '' });
     }
 
-    async function fetchDriveAudioFiles() {
-      showStatus('Scanning Google Drive for audio files...');
+    async function loadDriveTracks() {
+      showStatus('Scanning your Google Drive for audio tracks...', 'info');
       try {
-        const query = encodeURIComponent("mimeType contains 'audio/' and trashed = false");
-        const url = `https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name,mimeType,size)&pageSize=200&orderBy=name`;
+        const q = encodeURIComponent(
+          "(mimeType contains 'audio/' or name contains '.mp3' or name contains '.m4a' or name contains '.wav' or name contains '.ogg' or name contains '.flac' or name contains '.aac') and trashed = false"
+        );
+        const url = `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,mimeType,size)&pageSize=500&orderBy=name&includeItemsFromAllDrives=true&supportsAllDrives=true`;
         const res = await fetch(url, {
           headers: { Authorization: `Bearer ${accessToken}` }
         });
-        if (!res.ok) throw new Error('Drive API returned ' + res.status);
-        const data = await res.json();
-        const driveTracks = (data.files || []).map(f => ({
-          id: 'drive_' + f.id,
-          driveId: f.id,
-          name: f.name.replace(/\.[^/.]+$/, ''),
-          source: 'drive',
-          mimeType: f.mimeType
-        }));
 
-        tracks = [...tracks.filter(t => t.source !== 'drive'), ...driveTracks];
-        showStatus(`Loaded ${driveTracks.length} audio tracks from Google Drive (0 MB phone storage used).`);
+        if (res.status === 401 || res.status === 403) {
+          accessToken = null;
+          showStatus('Drive authorization expired or denied. Click Connect Drive to sign in again.', 'error');
+          return;
+        }
+        if (!res.ok) throw new Error('Drive API HTTP ' + res.status);
+
+        const data = await res.json();
+        const driveList = (data.files || []).map(f => {
+          const cleanName = f.name.replace(/\.[^/.]+$/, '');
+          const ext = (f.name.split('.').pop() || 'AUDIO').toUpperCase();
+          return {
+            id: 'drive_' + f.id,
+            driveId: f.id,
+            rawName: f.name,
+            name: cleanName,
+            ext,
+            mimeType: inferAudioMime(f.name, f.mimeType),
+            source: 'drive'
+          };
+        });
+
+        tracks = [...tracks.filter(t => t.source !== 'drive'), ...driveList];
+        showStatus(`Connected! Loaded ${driveList.length} songs from Google Drive (0 MB phone storage used).`, 'info');
+        renderSidebar();
         renderTracks();
       } catch (err) {
-        showStatus('Failed to fetch Drive files: ' + err.message, true);
+        showStatus('Could not list Google Drive files: ' + err.message, 'error');
       }
     }
 
-    function handleLocalFiles(e) {
-      const files = Array.from(e.target.files || []);
-      const localTracks = files.map((file, idx) => ({
-        id: 'local_' + Date.now() + '_' + idx,
+    function importLocalFiles(event) {
+      const files = Array.from(event.target.files || []);
+      if (!files.length) return;
+      const added = files.map((file, i) => ({
+        id: 'local_' + Date.now() + '_' + i,
+        rawName: file.name,
         name: file.name.replace(/\.[^/.]+$/, ''),
+        ext: (file.name.split('.').pop() || 'AUDIO').toUpperCase(),
+        mimeType: inferAudioMime(file.name, file.type),
         source: 'local',
         fileObj: file
       }));
-      tracks = [...tracks, ...localTracks];
-      showStatus(`Added ${localTracks.length} local tracks.`);
+      tracks = [...tracks, ...added];
+      showStatus(`Added ${added.length} local audio files.`, 'info');
+      renderSidebar();
       renderTracks();
     }
 
-    function setFilter(filter, el) {
-      currentFilter = filter;
-      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-      el.classList.add('active');
+    function selectView(viewId) {
+      activeView = viewId;
+      document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+      const navEl = document.getElementById('nav-' + viewId);
+      if (navEl) navEl.classList.add('active');
+      renderSidebar();
       renderTracks();
     }
 
-    function getFilteredTracks() {
-      const q = document.getElementById('searchInput').value.toLowerCase();
-      return tracks.filter(t => {
-        if (currentFilter === 'drive' && t.source !== 'drive') return false;
-        if (currentFilter === 'liked' && !likedIds.has(t.id)) return false;
-        if (q && !t.name.toLowerCase().includes(q)) return false;
-        return true;
-      });
+    function getVisibleTracks() {
+      const q = document.getElementById('searchInput').value.trim().toLowerCase();
+      let list = tracks;
+
+      if (activeView === 'drive') {
+        list = tracks.filter(t => t.source === 'drive');
+      } else if (activeView === 'liked') {
+        list = tracks.filter(t => likedIds.has(t.id));
+      } else if (activeView !== 'all') {
+        const pl = playlists.find(p => p.id === activeView);
+        list = pl ? pl.trackIds.map(id => tracks.find(t => t.id === id)).filter(Boolean) : [];
+      }
+
+      if (q) {
+        list = list.filter(t => t.name.toLowerCase().includes(q));
+      }
+      return list;
+    }
+
+    function renderSidebar() {
+      document.getElementById('cntAll').textContent = tracks.length;
+      document.getElementById('cntDrive').textContent = tracks.filter(t => t.source === 'drive').length;
+      document.getElementById('cntLiked').textContent = tracks.filter(t => likedIds.has(t.id)).length;
+
+      const plBox = document.getElementById('playlistSidebar');
+      const staticItems = [
+        { id: 'liked', name: 'Liked Songs', sub: `${tracks.filter(t => likedIds.has(t.id)).length} songs`, icon: '💚', cls: 'liked' },
+        { id: 'drive', name: 'Google Drive Cloud', sub: `${tracks.filter(t => t.source === 'drive').length} songs`, icon: '☁️', cls: 'drive' }
+      ];
+
+      const customItems = playlists.map(pl => ({
+        id: pl.id,
+        name: pl.name,
+        sub: `${pl.trackIds.length} songs`,
+        icon: '🎶',
+        cls: ''
+      }));
+
+      plBox.innerHTML = [...staticItems, ...customItems].map(item => `
+        <div class="pl-item ${activeView === item.id ? 'active' : ''}" onclick="selectView('${item.id}')">
+          <div class="pl-thumb ${item.cls}">${item.icon}</div>
+          <div class="pl-info">
+            <div class="pl-name">${escapeHtml(item.name)}</div>
+            <div class="pl-sub">${escapeHtml(item.sub)}</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function updateHero() {
+      const heroBanner = document.getElementById('heroBanner');
+      const heroCover = document.getElementById('heroCover');
+      const heroType = document.getElementById('heroType');
+      const heroTitle = document.getElementById('heroTitle');
+      const heroDesc = document.getElementById('heroDesc');
+      const visible = getVisibleTracks();
+
+      if (activeView === 'liked') {
+        heroBanner.style.background = 'linear-gradient(180deg, #3b1d82 0%, var(--bg-base) 100%)';
+        heroCover.style.background = 'linear-gradient(135deg, #450af5, #c4efd9)';
+        heroCover.textContent = '💚';
+        heroType.textContent = 'COLLECTION';
+        heroTitle.textContent = 'Liked Songs';
+      } else if (activeView === 'drive') {
+        heroBanner.style.background = 'linear-gradient(180deg, #174ea6 0%, var(--bg-base) 100%)';
+        heroCover.style.background = 'linear-gradient(135deg, #0f9d58, #4285f4)';
+        heroCover.textContent = '☁️';
+        heroType.textContent = 'CLOUD STREAM';
+        heroTitle.textContent = 'Google Drive';
+      } else if (activeView === 'all') {
+        heroBanner.style.background = 'linear-gradient(180deg, #1f4e36 0%, var(--bg-base) 100%)';
+        heroCover.style.background = 'linear-gradient(135deg, #1db954, #191414)';
+        heroCover.textContent = '🎵';
+        heroType.textContent = 'LIBRARY';
+        heroTitle.textContent = 'All Songs';
+      } else {
+        const pl = playlists.find(p => p.id === activeView);
+        heroBanner.style.background = 'linear-gradient(180deg, #4a2c2a 0%, var(--bg-base) 100%)';
+        heroCover.style.background = 'linear-gradient(135deg, #e13300, #1e3264)';
+        heroCover.textContent = '🎶';
+        heroType.textContent = 'PLAYLIST';
+        heroTitle.textContent = pl ? pl.name : 'Playlist';
+      }
+      heroDesc.textContent = `${visible.length} ${visible.length === 1 ? 'song' : 'songs'} • Ad-free personal player`;
     }
 
     function renderTracks() {
-      document.getElementById('countAll').textContent = tracks.length;
-      document.getElementById('countDrive').textContent = tracks.filter(t => t.source === 'drive').length;
-      document.getElementById('countLiked').textContent = tracks.filter(t => likedIds.has(t.id)).length;
+      updateHero();
+      const visible = getVisibleTracks();
+      const container = document.getElementById('trackContainer');
 
-      const list = document.getElementById('trackList');
-      const filtered = getFilteredTracks();
-      if (!filtered.length) {
-        list.innerHTML = `<p style="color:var(--text-secondary);font-size:14px;margin-top:20px;">No tracks in this view yet.</p>`;
+      if (!visible.length) {
+        container.innerHTML = `
+          <div style="padding:32px 12px;color:var(--text-secondary);font-size:14px;line-height:1.6;">
+            No songs in this view yet.<br />
+            Click <strong>☁️ Connect Drive</strong> at the top to load your Google Drive music, or add local audio files.
+          </div>
+        `;
+        renderQueue();
         return;
       }
 
-      list.innerHTML = filtered.map((t, idx) => {
-        const globalIdx = tracks.findIndex(x => x.id === t.id);
-        const isPlaying = globalIdx === currentIndex;
+      container.innerHTML = visible.map((t, index) => {
+        const isCurrent = t.id === currentTrackId;
         const isLiked = likedIds.has(t.id);
         return `
-          <div class="track-row ${isPlaying ? 'playing' : ''}" onclick="playTrack(${globalIdx})">
-            <div class="track-meta">${isPlaying ? '▶' : idx + 1}</div>
-            <div class="track-title">${escapeHtml(t.name)}</div>
-            <div class="badge ${t.source === 'local' ? 'local' : ''}">${t.source}</div>
-            <button class="like-btn ${isLiked ? 'liked' : ''}" onclick="toggleLike(event, '${t.id}')">♥</button>
+          <div class="track-row ${isCurrent ? 'active' : ''}" onclick="playTrackById('${t.id}')">
+            <div class="track-num">${isCurrent ? '▶' : index + 1}</div>
+            <div class="track-main">
+              <div class="track-art">${t.source === 'drive' ? '☁️' : '🎵'}</div>
+              <div class="track-text">
+                <div class="track-title">${escapeHtml(t.name)}</div>
+                <div class="track-sub">${t.ext} • ${t.source === 'drive' ? 'Google Drive' : 'Local Device'}</div>
+              </div>
+            </div>
+            <div><span class="source-tag ${t.source === 'local' ? 'local' : ''}">${t.source}</span></div>
+            <div class="row-actions">
+              <button class="heart-btn ${isLiked ? 'liked' : ''}" onclick="toggleLike(event, '${t.id}')" title="Like">♥</button>
+              <button class="icon-btn" onclick="openAddToPlaylist(event, '${t.id}')" title="Add to Playlist">＋</button>
+            </div>
           </div>
         `;
       }).join('');
+
+      renderQueue();
     }
 
-    async function playTrack(idx) {
-      if (idx < 0 || idx >= tracks.length) return;
-      currentIndex = idx;
-      const track = tracks[idx];
+    function renderQueue() {
+      const qBox = document.getElementById('queueList');
+      const visible = getVisibleTracks();
+      if (!visible.length) {
+        qBox.innerHTML = `<div style="font-size:12px;color:var(--text-secondary);">Queue is empty.</div>`;
+        return;
+      }
+      const curIdx = visible.findIndex(t => t.id === currentTrackId);
+      const upcoming = curIdx >= 0 ? visible.slice(curIdx + 1, curIdx + 8) : visible.slice(0, 6);
+      qBox.innerHTML = upcoming.length
+        ? upcoming.map(t => `
+            <div class="q-item" onclick="playTrackById('${t.id}')">
+              <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(t.name)}</span>
+              <span style="color:var(--text-secondary);font-size:11px;">${t.ext}</span>
+            </div>
+          `).join('')
+        : `<div style="font-size:12px;color:var(--text-secondary);">End of playlist.</div>`;
+    }
+
+    async function playTrackById(trackId) {
+      const track = tracks.find(t => t.id === trackId);
+      if (!track) return;
+
+      currentTrackId = trackId;
       renderTracks();
+      updatePlayerUI(track, 'Buffering audio...');
 
-      document.getElementById('npTitle').textContent = track.name;
-      document.getElementById('npSub').textContent = track.source === 'drive' ? 'Buffering from Google Drive...' : 'Local file';
+      // Prime audio element immediately inside user click gesture for mobile Safari/Chrome
+      try {
+        audio.pause();
+        audio.removeAttribute('src');
+        audio.load();
+      } catch (_) {}
 
-      if (currentBlobUrl) {
-        URL.revokeObjectURL(currentBlobUrl);
-        currentBlobUrl = null;
+      if (activeBlobUrl) {
+        URL.revokeObjectURL(activeBlobUrl);
+        activeBlobUrl = null;
       }
 
       try {
         if (track.source === 'drive') {
           if (!accessToken) {
-            handleDriveConnect();
+            showStatus('Session expired. Reconnecting Google Drive...', 'info');
+            connectGoogleDrive(false);
             return;
           }
-          const res = await fetch(`https://www.googleapis.com/drive/v3/files/${track.driveId}?alt=media`, {
+
+          const res = await fetch(`https://www.googleapis.com/drive/v3/files/${track.driveId}?alt=media&supportsAllDrives=true`, {
             headers: { Authorization: `Bearer ${accessToken}` }
           });
-          if (res.status === 401) {
-            showStatus('Session expired—reconnecting Google Drive...', true);
-            handleDriveConnect();
+
+          if (res.status === 401 || res.status === 403) {
+            accessToken = null;
+            showStatus('Google Drive token expired. Click Connect Drive to refresh.', 'error');
+            updatePlayerUI(track, 'Sign-in required');
             return;
           }
-          if (!res.ok) throw new Error('Stream error ' + res.status);
-          const blob = await res.blob();
-          currentBlobUrl = URL.createObjectURL(blob);
-          audio.src = currentBlobUrl;
+          if (!res.ok) {
+            throw new Error(`Google Drive returned HTTP ${res.status}`);
+          }
+
+          const rawBuffer = await res.arrayBuffer();
+          if (!rawBuffer || rawBuffer.byteLength === 0) {
+            throw new Error('Empty audio file received from Drive');
+          }
+
+          // Wrap in explicit audio MIME Blob so mobile & desktop browsers decode reliably
+          const typedBlob = new Blob([rawBuffer], { type: track.mimeType || 'audio/mpeg' });
+          activeBlobUrl = URL.createObjectURL(typedBlob);
+          audio.src = activeBlobUrl;
         } else {
-          currentBlobUrl = URL.createObjectURL(track.fileObj);
-          audio.src = currentBlobUrl;
+          activeBlobUrl = URL.createObjectURL(track.fileObj);
+          audio.src = activeBlobUrl;
         }
 
         await audio.play();
-        document.getElementById('npSub').textContent = track.source === 'drive' ? 'Streaming from Google Drive' : 'Playing local audio';
-        document.getElementById('playPauseBtn').textContent = '⏸';
+        document.getElementById('btnPlayPause').textContent = '⏸';
+        updatePlayerUI(track, track.source === 'drive' ? 'Streaming from Google Drive' : 'Playing local file');
+        hideStatus();
 
         if ('mediaSession' in navigator) {
           navigator.mediaSession.metadata = new MediaMetadata({
             title: track.name,
-            artist: 'SonicVault (' + track.source + ')'
+            artist: 'SonicVault',
+            album: track.source === 'drive' ? 'Google Drive' : 'Local Library'
           });
+          navigator.mediaSession.setActionHandler('play', () => { audio.play(); document.getElementById('btnPlayPause').textContent = '⏸'; });
+          navigator.mediaSession.setActionHandler('pause', () => { audio.pause(); document.getElementById('btnPlayPause').textContent = '▶'; });
           navigator.mediaSession.setActionHandler('previoustrack', prevTrack);
           navigator.mediaSession.setActionHandler('nexttrack', nextTrack);
         }
       } catch (err) {
-        document.getElementById('npSub').textContent = 'Playback failed';
-        showStatus('Error playing track: ' + err.message, true);
+        document.getElementById('btnPlayPause').textContent = '▶';
+        updatePlayerUI(track, 'Playback error');
+        showStatus(`Cannot play "${track.name}": ${err.message}`, 'error');
       }
     }
 
-    function togglePlay() {
-      if (!audio.src && tracks.length) {
-        playTrack(0);
+    function updatePlayerUI(track, statusLine) {
+      const icon = track.source === 'drive' ? '☁️' : '🎵';
+      document.getElementById('pbArt').textContent = icon;
+      document.getElementById('pbTitle').textContent = track.name;
+      document.getElementById('pbSub').textContent = statusLine;
+      document.getElementById('pbHeart').classList.toggle('liked', likedIds.has(track.id));
+
+      document.getElementById('rpArt').textContent = icon;
+      document.getElementById('rpTitle').textContent = track.name;
+      document.getElementById('rpSub').textContent = statusLine;
+    }
+
+    function togglePlayPause() {
+      if (!currentTrackId) {
+        playCurrentView();
         return;
       }
       if (audio.paused) {
-        audio.play();
-        document.getElementById('playPauseBtn').textContent = '⏸';
+        audio.play().then(() => {
+          document.getElementById('btnPlayPause').textContent = '⏸';
+        }).catch(err => {
+          showStatus('Tap a song row to start playback: ' + err.message, 'error');
+        });
       } else {
         audio.pause();
-        document.getElementById('playPauseBtn').textContent = '▶';
+        document.getElementById('btnPlayPause').textContent = '▶';
       }
+    }
+
+    function playCurrentView() {
+      const visible = getVisibleTracks();
+      if (!visible.length) {
+        showStatus('No tracks available yet. Connect Google Drive first.', 'info');
+        return;
+      }
+      playTrackById(visible[0].id);
+    }
+
+    function shuffleCurrentView() {
+      const visible = getVisibleTracks();
+      if (!visible.length) return;
+      isShuffle = true;
+      document.getElementById('btnShuffle').classList.add('active');
+      const randomTrack = visible[Math.floor(Math.random() * visible.length)];
+      playTrackById(randomTrack.id);
     }
 
     function nextTrack() {
-      if (!tracks.length) return;
+      const visible = getVisibleTracks();
+      if (!visible.length) return;
       if (isShuffle) {
-        playTrack(Math.floor(Math.random() * tracks.length));
-      } else {
-        playTrack((currentIndex + 1) % tracks.length);
+        const next = visible[Math.floor(Math.random() * visible.length)];
+        playTrackById(next.id);
+        return;
       }
+      const idx = visible.findIndex(t => t.id === currentTrackId);
+      const nextIdx = idx >= 0 ? (idx + 1) % visible.length : 0;
+      playTrackById(visible[nextIdx].id);
     }
 
     function prevTrack() {
-      if (!tracks.length) return;
+      const visible = getVisibleTracks();
+      if (!visible.length) return;
       if (audio.currentTime > 3) {
         audio.currentTime = 0;
         return;
       }
-      playTrack((currentIndex - 1 + tracks.length) % tracks.length);
+      const idx = visible.findIndex(t => t.id === currentTrackId);
+      const prevIdx = idx > 0 ? idx - 1 : visible.length - 1;
+      playTrackById(visible[prevIdx].id);
     }
 
     function toggleShuffle() {
       isShuffle = !isShuffle;
-      document.getElementById('shuffleBtn').classList.toggle('active', isShuffle);
+      document.getElementById('btnShuffle').classList.toggle('active', isShuffle);
     }
 
     function toggleRepeat() {
       isRepeat = !isRepeat;
-      document.getElementById('repeatBtn').classList.toggle('active', isRepeat);
+      document.getElementById('btnRepeat').classList.toggle('active', isRepeat);
     }
 
-    function toggleLike(e, id) {
+    function toggleQueuePanel() {
+      document.getElementById('workspace').classList.toggle('queue-closed');
+    }
+
+    function toggleLike(e, trackId) {
       e.stopPropagation();
-      if (likedIds.has(id)) likedIds.delete(id);
-      else likedIds.add(id);
-      localStorage.setItem('sv_liked', JSON.stringify([...likedIds]));
+      if (likedIds.has(trackId)) likedIds.delete(trackId);
+      else likedIds.add(trackId);
+      localStorage.setItem('sv_liked_v2', JSON.stringify([...likedIds]));
+      if (trackId === currentTrackId) {
+        document.getElementById('pbHeart').classList.toggle('liked', likedIds.has(trackId));
+      }
+      renderSidebar();
       renderTracks();
     }
 
-    function seekAudio(val) {
-      if (!audio.duration) return;
+    function toggleCurrentLike() {
+      if (!currentTrackId) return;
+      toggleLike({ stopPropagation: () => {} }, currentTrackId);
+    }
+
+    function createPlaylist() {
+      const name = document.getElementById('playlistNameField').value.trim();
+      if (!name) return;
+      const newPl = { id: 'pl_' + Date.now(), name, trackIds: [] };
+      playlists.push(newPl);
+      localStorage.setItem('sv_playlists_v2', JSON.stringify(playlists));
+      closeModal('playlistModal');
+      renderSidebar();
+      selectView(newPl.id);
+    }
+
+    function openAddToPlaylist(e, trackId) {
+      e.stopPropagation();
+      if (!playlists.length) {
+        openPlaylistModal();
+        return;
+      }
+      pendingTrackIdForPlaylist = trackId;
+      const track = tracks.find(t => t.id === trackId);
+      document.getElementById('addTrackLabel').textContent = `Add "${track ? track.name : 'song'}" to:`;
+      document.getElementById('plPickerList').innerHTML = playlists.map(pl => `
+        <button class="pill-btn" style="justify-content:space-between;width:100%;border-radius:6px;" onclick="addTrackToPlaylist('${pl.id}')">
+          <span>🎶 ${escapeHtml(pl.name)}</span>
+          <span style="color:var(--text-secondary);font-size:11px;">${pl.trackIds.length} songs</span>
+        </button>
+      `).join('');
+      document.getElementById('addToPlModal').style.display = 'flex';
+    }
+
+    function addTrackToPlaylist(plId) {
+      const pl = playlists.find(p => p.id === plId);
+      if (pl && pendingTrackIdForPlaylist && !pl.trackIds.includes(pendingTrackIdForPlaylist)) {
+        pl.trackIds.push(pendingTrackIdForPlaylist);
+        localStorage.setItem('sv_playlists_v2', JSON.stringify(playlists));
+        showStatus(`Added to "${pl.name}"`, 'info');
+      }
+      closeModal('addToPlModal');
+      renderSidebar();
+      if (activeView === plId) renderTracks();
+    }
+
+    function onSeek(val) {
+      if (!audio.duration || isNaN(audio.duration)) return;
       audio.currentTime = (val / 100) * audio.duration;
     }
 
-    function formatTime(sec) {
-      if (!sec || isNaN(sec)) return '0:00';
+    function formatDuration(sec) {
+      if (!sec || isNaN(sec) || !isFinite(sec)) return '0:00';
       const m = Math.floor(sec / 60);
       const s = Math.floor(sec % 60).toString().padStart(2, '0');
       return `${m}:${s}`;
     }
 
     audio.addEventListener('timeupdate', () => {
-      document.getElementById('curTime').textContent = formatTime(audio.currentTime);
-      document.getElementById('durTime').textContent = formatTime(audio.duration);
-      if (audio.duration) {
-        document.getElementById('seekBar').value = (audio.currentTime / audio.duration) * 100;
+      document.getElementById('timeElapsed').textContent = formatDuration(audio.currentTime);
+      document.getElementById('timeTotal').textContent = formatDuration(audio.duration);
+      if (audio.duration && isFinite(audio.duration)) {
+        document.getElementById('seekSlider').value = (audio.currentTime / audio.duration) * 100;
       }
     });
 
@@ -449,9 +1354,21 @@
       }
     });
 
+    audio.addEventListener('error', () => {
+      const code = audio.error ? audio.error.code : 'unknown';
+      showStatus(`Audio decoder error (code ${code}). Ensure the file is a valid MP3, M4A, WAV, or OGG.`, 'error');
+      document.getElementById('btnPlayPause').textContent = '▶';
+    });
+
     function escapeHtml(str) {
-      return str.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+      return String(str).replace(/[&<>"']/g, m => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[m]));
     }
+
+    // Initial render
+    renderSidebar();
+    renderTracks();
   </script>
 </body>
 </html>
